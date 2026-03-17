@@ -4,14 +4,14 @@
 // Testbench: AXI-Stream Mid-Side Wrapper
 // -----------------------------------------------------------------------------
 // Purpose:
-//   - Validate AXI-Stream + AXI-Lite integration
-//   - Verify bypass, encode, and decode modes
-//   - Ensure timing alignment across fixed 2-cycle pipeline
-//   - Log I/O behavior to CSV for offline inspection
+//    - Validate AXI-Stream + AXI-Lite integration
+//    - Verify bypass, encode, and decode modes
+//    - Ensure timing alignment across fixed 2-cycle pipeline
+//    - Log I/O behavior to CSV for offline inspection
 //
 // Assumptions:
-//   - Fixed latency = 2 cycles
-//   - m_axis_tready held high
+//    - Fixed latency = 2 cycles
+//    - m_axis_tready held high
 // -----------------------------------------------------------------------------
 
 module tb_midside_axis_wrapper;
@@ -19,21 +19,22 @@ module tb_midside_axis_wrapper;
     // -------------------------------------------------------------------------
     // Clock & Reset
     // -------------------------------------------------------------------------
-    reg aclk    = 1'b0;
-    reg aresetn = 1'b0;
+    reg aclk;
+    reg aresetn;
 
+    initial aclk = 1'b0;
     always #5 aclk = ~aclk; // 100 MHz
 
     // -------------------------------------------------------------------------
     // AXI-Lite Signals
     // -------------------------------------------------------------------------
     reg  [3:0]  s_axi_awaddr;
-    reg  [2:0]  s_axi_awprot = 3'b000;
+    reg  [2:0]  s_axi_awprot;
     reg         s_axi_awvalid;
     wire        s_axi_awready;
 
     reg  [31:0] s_axi_wdata;
-    reg  [3:0]  s_axi_wstrb = 4'b1111;
+    reg  [3:0]  s_axi_wstrb;
     reg         s_axi_wvalid;
     wire        s_axi_wready;
 
@@ -42,7 +43,7 @@ module tb_midside_axis_wrapper;
     reg         s_axi_bready;
 
     reg  [3:0]  s_axi_araddr;
-    reg  [2:0]  s_axi_arprot = 3'b000;
+    reg  [2:0]  s_axi_arprot;
     reg         s_axi_arvalid;
     wire        s_axi_arready;
 
@@ -128,15 +129,22 @@ module tb_midside_axis_wrapper;
     // Input Delay Pipeline (2 cycles)
     // -------------------------------------------------------------------------
     always @(posedge aclk) begin
-        if (s_axis_tready && s_axis_tvalid) begin
-            in_L_d1 <= s_axis_tdata[31:16];
-            in_R_d1 <= s_axis_tdata[15:0];
-            in_L_d2 <= in_L_d1;
-            in_R_d2 <= in_R_d1;
-        end else if (m_axis_tvalid) begin
-            // Drain remaining pipeline data
-            in_L_d2 <= in_L_d1;
-            in_R_d2 <= in_R_d1;
+        if (aresetn) begin
+            if (s_axis_tready && s_axis_tvalid) begin
+                in_L_d1 <= s_axis_tdata[31:16];
+                in_R_d1 <= s_axis_tdata[15:0];
+                in_L_d2 <= in_L_d1;
+                in_R_d2 <= in_R_d1;
+            end else if (m_axis_tvalid) begin
+                // Drain remaining pipeline data
+                in_L_d2 <= in_L_d1;
+                in_R_d2 <= in_R_d1;
+            end
+        end else begin
+            in_L_d1 <= 16'sd0;
+            in_L_d2 <= 16'sd0;
+            in_R_d1 <= 16'sd0;
+            in_R_d2 <= 16'sd0;
         end
     end
 
@@ -144,14 +152,14 @@ module tb_midside_axis_wrapper;
     // CSV Logging on Output Valid
     // -------------------------------------------------------------------------
     always @(posedge aclk) begin
-        if (m_axis_tvalid) begin
+        if (aresetn && m_axis_tvalid) begin
             $fwrite(
                 f_csv,
-                "%0t,%0d,%0d,%0d,%0d,%0d\n",
+                "%0d,%0d,%0d,%0d,%0d,%0d\n",
                 $time,
                 current_mode_log,
-                in_L_d2,
-                in_R_d2,
+                $signed(in_L_d2),
+                $signed(in_R_d2),
                 $signed(m_axis_tdata[31:16]),
                 $signed(m_axis_tdata[15:0])
             );
@@ -161,7 +169,9 @@ module tb_midside_axis_wrapper;
     // -------------------------------------------------------------------------
     // AXI-Lite Write Task
     // -------------------------------------------------------------------------
-    task write_reg(input [3:0] addr, input [31:0] data);
+    task write_reg;
+        input [3:0]  addr;
+        input [31:0] data;
     begin
         @(posedge aclk);
         s_axi_awaddr  <= addr;
@@ -187,7 +197,9 @@ module tb_midside_axis_wrapper;
     // -------------------------------------------------------------------------
     // Send one stereo sample
     // -------------------------------------------------------------------------
-    task send_audio(input signed [15:0] left, input signed [15:0] right);
+    task send_audio;
+        input signed [15:0] left;
+        input signed [15:0] right;
     begin
         @(posedge aclk);
         wait (s_axis_tready);
@@ -205,17 +217,26 @@ module tb_midside_axis_wrapper;
     // Main Stimulus
     // -------------------------------------------------------------------------
     initial begin
-        // Init
-        s_axis_tvalid = 0;
-        s_axis_tdata  = 0;
-        s_axi_awvalid = 0;
-        s_axi_wvalid  = 0;
-        s_axi_arvalid = 0;
-        s_axi_rready  = 0;
-        s_axi_bready  = 0;
+        // Init signals
+        aresetn       = 1'b0;
+        s_axis_tvalid = 1'b0;
+        s_axis_tdata  = 32'd0;
+        
+        s_axi_awaddr  = 4'd0;
+        s_axi_awprot  = 3'b000;
+        s_axi_awvalid = 1'b0;
+        s_axi_wdata   = 32'd0;
+        s_axi_wstrb   = 4'b1111;
+        s_axi_wvalid  = 1'b0;
+        s_axi_bready  = 1'b0;
+        
+        s_axi_araddr  = 4'd0;
+        s_axi_arprot  = 3'b000;
+        s_axi_arvalid = 1'b0;
+        s_axi_rready  = 1'b0;
 
-        in_L_d1 = 0; in_L_d2 = 0;
-        in_R_d1 = 0; in_R_d2 = 0;
+        in_L_d1 = 16'sd0; in_L_d2 = 16'sd0;
+        in_R_d1 = 16'sd0; in_R_d2 = 16'sd0;
 
         current_mode_log = 0;
 
@@ -228,8 +249,8 @@ module tb_midside_axis_wrapper;
         // ---------------------------------------------------------------------
         current_mode_log = 0;
         $display("=== Mode 0: Bypass ===");
-        send_audio( 1000,   500);
-        send_audio( -500,   250);
+        send_audio( 16'sd1000,  16'sd500);
+        send_audio(-16'sd500,   16'sd250);
 
         #50;
 
@@ -240,8 +261,8 @@ module tb_midside_axis_wrapper;
         write_reg(4'h0, 32'h0000_0001);
         current_mode_log = 1;
 
-        send_audio( 2000,  1000); // mid=1500, side=500
-        send_audio(-2000,  2000); // mid=0,    side=-2000
+        send_audio( 16'sd2000,  16'sd1000); // mid=1500, side=500
+        send_audio(-16'sd2000,  16'sd2000); // mid=0,    side=-2000
 
         #50;
 
@@ -252,8 +273,8 @@ module tb_midside_axis_wrapper;
         write_reg(4'h0, 32'h0000_0002);
         current_mode_log = 2;
 
-        send_audio(1500,   500);  // L=2000, R=1000
-        send_audio(   0, -2000);  // L=-2000, R=2000
+        send_audio(16'sd1500,   16'sd500);  // L=2000, R=1000
+        send_audio(16'sd0,     -16'sd2000); // L=-2000, R=2000
 
         #100;
 
