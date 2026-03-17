@@ -4,13 +4,13 @@
 // Testbench: Mid-Side Core
 // -----------------------------------------------------------------------------
 // Purpose:
-//   - Functional verification of mid_side_core
-//   - Validate bypass and encode modes
-//   - Capture results in CSV for offline inspection
+//    - Functional verification of mid_side_core
+//    - Validate bypass and encode modes
+//    - Capture results in CSV for offline inspection
 //
 // Assumptions:
-//   - Fixed 1-cycle latency
-//   - ce is held high
+//    - Fixed 1-cycle latency
+//    - ce is held high
 // -----------------------------------------------------------------------------
 
 module tb_mid_side_core;
@@ -18,9 +18,9 @@ module tb_mid_side_core;
     // -------------------------------------------------------------------------
     // DUT Interface
     // -------------------------------------------------------------------------
-    reg  clk;
-    reg  ce;
-    reg  enable;
+    reg         clk;
+    reg         ce;
+    reg         enable;
     reg  signed [15:0] L;
     reg  signed [15:0] R;
 
@@ -46,19 +46,16 @@ module tb_mid_side_core;
     // -------------------------------------------------------------------------
     // Clock generation (100 MHz)
     // -------------------------------------------------------------------------
-    initial begin
-        clk = 1'b0;
-        forever #5 clk = ~clk;
-    end
+    initial clk = 1'b0;
+    always #5 clk = ~clk;
 
     // -------------------------------------------------------------------------
     // Apply one test vector
     // -------------------------------------------------------------------------
-    task apply_vector(
-        input signed [15:0] in_L,
-        input signed [15:0] in_R,
-        input               en
-    );
+    task apply_vector;
+        input signed [15:0] in_L;
+        input signed [15:0] in_R;
+        input               en;
     begin
         // Apply inputs
         L      <= in_L;
@@ -72,8 +69,8 @@ module tb_mid_side_core;
         // Log result
         $fwrite(
             f,
-            "%0t,%0d,%0d,%0d,%0d,%0d\n",
-            $time, enable, in_L, in_R, mid, side
+            "%0d,%0d,%0d,%0d,%0d,%0d\n",
+            $time, enable, $signed(in_L), $signed(in_R), $signed(mid), $signed(side)
         );
     end
     endtask
@@ -88,7 +85,7 @@ module tb_mid_side_core;
 
         // Initial conditions
         ce     = 1'b1;
-        enable= 1'b0;
+        enable = 1'b0;
         L      = 16'sd0;
         R      = 16'sd0;
 
@@ -99,19 +96,19 @@ module tb_mid_side_core;
         // Test Case 1: Bypass mode
         // Expect: mid = L, side = R
         // ---------------------------------------------------------------------
-        apply_vector( 1000,   500, 0);
-        apply_vector( -500,   200, 0);
-        apply_vector(32767, -32768, 0);
+        apply_vector(16'sd1000,  16'sd500,   1'b0);
+        apply_vector(-16'sd500,  16'sd200,   1'b0);
+        apply_vector(16'sd32767, -16'sd32768, 1'b0);
 
         // ---------------------------------------------------------------------
         // Test Case 2: Encode mode
         // mid  = (L + R) >>> 1
         // side = (L - R) >>> 1
         // ---------------------------------------------------------------------
-        apply_vector( 2000,  1000, 1); // mid=1500, side=500
-        apply_vector(-2000,  2000, 1); // mid=0,    side=-2000
-        apply_vector(    3,     0, 1); // mid=1,    side=1
-        apply_vector(  100,   -50, 1); // mid=25,   side=75
+        apply_vector( 16'sd2000,  16'sd1000, 1'b1); // mid=1500, side=500
+        apply_vector(-16'sd2000,  16'sd2000, 1'b1); // mid=0,    side=-2000
+        apply_vector( 16'sd3,     16'sd0,    1'b1); // mid=1,    side=1
+        apply_vector( 16'sd100,   -16'sd50,  1'b1); // mid=25,   side=75
 
         #20;
         $fclose(f);
