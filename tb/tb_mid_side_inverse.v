@@ -4,13 +4,13 @@
 // Testbench: Mid-Side Inverse Core
 // -----------------------------------------------------------------------------
 // Purpose:
-//   - Functional verification of mid_side_inverse
-//   - Validate bypass, reconstruction, and saturation behavior
-//   - Capture results in CSV for offline analysis
+//    - Functional verification of mid_side_inverse
+//    - Validate bypass, reconstruction, and saturation behavior
+//    - Capture results in CSV for offline analysis
 //
 // Assumptions:
-//   - Fixed 1-cycle latency
-//   - ce is held high
+//    - Fixed 1-cycle latency
+//    - ce is held high
 // -----------------------------------------------------------------------------
 
 module tb_mid_side_inverse;
@@ -18,9 +18,9 @@ module tb_mid_side_inverse;
     // -------------------------------------------------------------------------
     // DUT Interface
     // -------------------------------------------------------------------------
-    reg  clk;
-    reg  ce;
-    reg  enable;
+    reg         clk;
+    reg         ce;
+    reg         enable;
     reg  signed [15:0] mid;
     reg  signed [15:0] side;
 
@@ -46,19 +46,16 @@ module tb_mid_side_inverse;
     // -------------------------------------------------------------------------
     // Clock generation (100 MHz)
     // -------------------------------------------------------------------------
-    initial begin
-        clk = 1'b0;
-        forever #5 clk = ~clk;
-    end
+    initial clk = 1'b0;
+    always #5 clk = ~clk;
 
     // -------------------------------------------------------------------------
     // Apply one test vector
     // -------------------------------------------------------------------------
-    task apply_vector(
-        input signed [15:0] in_mid,
-        input signed [15:0] in_side,
-        input               en
-    );
+    task apply_vector;
+        input signed [15:0] in_mid;
+        input signed [15:0] in_side;
+        input               en;
     begin
         mid    <= in_mid;
         side   <= in_side;
@@ -71,8 +68,8 @@ module tb_mid_side_inverse;
         // Log result
         $fwrite(
             f,
-            "%0t,%0d,%0d,%0d,%0d,%0d\n",
-            $time, enable, in_mid, in_side, L, R
+            "%0d,%0d,%0d,%0d,%0d,%0d\n",
+            $time, enable, $signed(in_mid), $signed(in_side), $signed(L), $signed(R)
         );
     end
     endtask
@@ -86,7 +83,7 @@ module tb_mid_side_inverse;
         $fwrite(f, "Time,Enable,In_Mid,In_Side,Out_L,Out_R\n");
 
         // Initial conditions
-        ce      = 1'b1;
+        ce     = 1'b1;
         enable = 1'b0;
         mid    = 16'sd0;
         side   = 16'sd0;
@@ -98,27 +95,27 @@ module tb_mid_side_inverse;
         // Test Case 1: Bypass mode
         // Expect: L = mid, R = side
         // ---------------------------------------------------------------------
-        apply_vector( 1234,  5678, 0);
+        apply_vector(16'sd1234, 16'sd5678, 1'b0);
 
         // ---------------------------------------------------------------------
         // Test Case 2: Normal reconstruction (no saturation)
         // L = mid + side
         // R = mid - side
         // ---------------------------------------------------------------------
-        apply_vector( 1000,   500, 1);  // L=1500, R=500
-        apply_vector( -100,   -50, 1);  // L=-150, R=-50
+        apply_vector(16'sd1000, 16'sd500, 1'b1);  // L=1500, R=500
+        apply_vector(-16'sd100, -16'sd50, 1'b1);  // L=-150, R=-50
 
         // ---------------------------------------------------------------------
         // Test Case 3: Saturation behavior
         // ---------------------------------------------------------------------
         // Positive overflow on L
-        apply_vector( 20000,  15000, 1); // L->32767, R=5000
+        apply_vector(16'sd20000, 16'sd15000, 1'b1); // L->32767, R=5000
 
         // Negative overflow on L
-        apply_vector(-20000, -20000, 1); // L->-32768, R=0
+        apply_vector(-16'sd20000, -16'sd20000, 1'b1); // L->-32768, R=0
 
         // Positive overflow on R
-        apply_vector( 20000, -20000, 1); // L=0, R->32767
+        apply_vector(16'sd20000, -16'sd20000, 1'b1); // L=0, R->32767
 
         #20;
         $fclose(f);
